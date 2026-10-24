@@ -1,0 +1,241 @@
+
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>海景拼图验证</title>
+<style>
+{ box-sizing: border-box; }
+body {
+margin: 0;
+min-height: 100vh;
+display: flex;
+align-items: center;
+justify-content: center;
+padding: 18px;
+background: #eef4f8;
+font-family: Arial, sans-serif;
+}
+.card {
+width: 100%;
+max-width: 390px;
+background: white;
+padding: 22px;
+border-radius: 16px;
+box-shadow: 0 8px 35px #1233;
+}
+h2 { margin: 0 0 8px; text-align: center; color: #18344b; }
+.desc { text-align: center; color: #6b7c8c; font-size: 14px; margin-bottom: 18px; }
+.scene {
+width: 100%;
+aspect-ratio: 340 / 210;
+position: relative;
+overflow: hidden;
+border-radius: 9px;
+background: #16a6ce;
+background-image: url("https://images.unsplash.com/photo-1500375592092-40eb2168fd21?auto=format&fit=crop&w=900&q=85");
+background-size: cover;
+background-position: center;
+touch-action: none;
+user-select: none;
+}
+.hole, .piece {
+position: absolute;
+width: 56px;
+height: 56px;
+}
+.hole {
+background: #102e42a8;
+border: 2px dashed white;
+border-radius: 7px;
+box-shadow: 0 0 0 1000px #001b2a25;
+}
+.piece {
+z-index: 2;
+background-image: url("https://images.unsplash.com/photo-1500375592092-40eb2168fd21?auto=format&fit=crop&w=900&q=85");
+background-size: var(--bg-size, 340px 210px);
+border: 2px solid white;
+border-radius: 7px;
+box-shadow: 0 2px 8px #0005;
+cursor: grab;
+touch-action: none;
+}
+.piece:active { cursor: grabbing; }
+.piece::before {
+content: "";
+position: absolute;
+width: 22px;
+height: 22px;
+left: 15px;
+top: -12px;
+border-radius: 50%;
+background: inherit;
+background-image: inherit;
+background-size: inherit;
+background-position: inherit;
+border: 2px solid white;
+border-bottom: 0;
+}
+.controls { margin-top: 18px; }
+.tip { text-align: center; font-size: 13px; color: #627587; margin-bottom: 12px; }
+input[type=range] { width: 100%; accent-color: #1687dc; cursor: pointer; }
+.status {
+text-align: center;
+margin-top: 13px;
+font-size: 15px;
+font-weight: bold;
+color: #526579;
+min-height: 22px;
+}
+.status.ok { color: #149447; }
+.status.error { color: #d34848; }
+button {
+width: 100%;
+margin-top: 12px;
+padding: 13px;
+border: 0;
+border-radius: 9px;
+color: white;
+background: #1687dc;
+font-size: 16px;
+font-weight: bold;
+cursor: pointer;
+}
+button:disabled { background: #999; cursor: default; }
+.footer { text-align: center; margin-top: 15px; font-size: 11px; color: #9aa7b2; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h2>🧩 拼图验证</h2>
+  <div class="desc">请拖动拼图，放到正确的位置</div>
+  <div class="scene" id="scene">
+    <div class="hole" id="hole"></div>
+    <div class="piece" id="piece"></div>
+  </div>
+  <div class="controls">
+    <div class="tip">← 拖动下方滑块完成拼图 →</div>
+    
+    <div class="status" id="status">等待验证</div>
+    <button id="retry" type="button">重新验证</button>
+  </div>
+  <div class="footer">安全验证 · 请完成拼图后继续</div>
+</div>
+<script>
+(() => {
+  // 修改成你自己的目的网址
+  const TARGET_URL = "https://www.ep88-my.com/en-my/?affcode=AFF-RJNAJECH";
+  const scene = document.getElementById("scene");
+  const hole = document.getElementById("hole");
+  const piece = document.getElementById("piece");
+  const slider = document.getElementById("slider");
+  const status = document.getElementById("status");
+  const retry = document.getElementById("retry");
+  const SIZE = 56;
+  let targetX = 0;
+  let targetY = 0;
+  let currentX = 0;
+  let dragging = false;
+  let startPointerX = 0;
+  let startPieceX = 0;
+  let verified = false;
+  function render() {
+    const w = scene.clientWidth;
+    const h = scene.clientHeight;
+    const maxX = Math.max(0, w - SIZE);
+targetX = Math.round(maxX * (0.35 + Math.random() * 0.5));
+targetY = Math.round((h - SIZE - 20) * (0.2 + Math.random() * 0.65));
+
+hole.style.left = targetX + "px";
+hole.style.top = targetY + "px";
+
+piece.style.top = targetY + "px";
+piece.style.left = "0px";
+piece.style.backgroundSize = w + "px " + h + "px";
+piece.style.backgroundPosition =
+  (-targetX) + "px " + (-targetY) + "px";
+
+scene.style.setProperty("--unused", "0");
+slider.max = String(maxX);
+slider.value = "0";
+currentX = 0;
+  }
+  function moveTo(x) {
+    const maxX = Math.max(0, scene.clientWidth - SIZE);
+    currentX = Math.max(0, Math.min(maxX, x));
+    piece.style.left = currentX + "px";
+    slider.value = String(currentX);
+  }
+  function check() {
+    if (verified) return;
+if (Math.abs(currentX - targetX) <= 7) {
+  verified = true;
+  piece.style.left = targetX + "px";
+  hole.style.border = "2px solid #16a34a";
+  piece.style.border = "2px solid #16a34a";
+  status.textContent = "✓ OK！验证成功，正在跳转…";
+  status.className = "status ok";
+  slider.disabled = true;
+  retry.disabled = true;
+
+  setTimeout(() => {
+    window.location.href = TARGET_URL;
+  }, 900);
+} else {
+  status.textContent = "位置不正确，请再试一次";
+  status.className = "status error";
+}
+  }
+  slider.addEventListener("input", () => {
+    if (verified) return;
+    moveTo(Number(slider.value));
+    status.textContent = "请将拼图移动到缺口";
+    status.className = "status";
+  });
+  piece.addEventListener("pointerdown", e => {
+    if (verified) return;
+    dragging = true;
+    startPointerX = e.clientX;
+    startPieceX = currentX;
+    piece.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  piece.addEventListener("pointermove", e => {
+    if (!dragging || verified) return;
+    const scale = scene.getBoundingClientRect().width /
+                  scene.clientWidth;
+    moveTo(startPieceX + (e.clientX - startPointerX) / scale);
+  });
+  piece.addEventListener("pointerup", () => {
+    if (!dragging) return;
+    dragging = false;
+    check();
+  });
+  piece.addEventListener("pointercancel", () => {
+    dragging = false;
+  });
+  slider.addEventListener("change", check);
+  retry.addEventListener("click", () => {
+    verified = false;
+    slider.disabled = false;
+    retry.disabled = false;
+    hole.style.border = "2px dashed white";
+    piece.style.border = "2px solid white";
+    status.textContent = "等待验证";
+    status.className = "status";
+    render();
+  });
+  const image = new Image();
+  image.onload = () => render();
+  image.onerror = () => {
+    status.textContent = "海景图片加载失败，请检查网络";
+    status.className = "status error";
+  };
+  image.src = "https://images.unsplash.com/photo-1500375592092-40eb2168fd21?auto=format&fit=crop&w=900&q=85";
+  window.addEventListener("resize", () => {
+    if (!verified) render();
+  });
+})();
+</script>
+</body>
+</html>
